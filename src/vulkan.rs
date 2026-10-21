@@ -63,12 +63,41 @@ fn slangc() -> PathBuf {
     PathBuf::from("slangc")
 }
 
-/// Compile Slang `source` to SPIR-V with `slangc`, entry point `entry`.
+/// `slangc` arguments that make f32 subnormals behave as IEEE: SPIR-V `DenormPreserve 32`.
+/// Without them the device may flush subnormal inputs in compares and arithmetic.
+pub const DENORM_PRESERVE: &[&str] = &["-denorm-mode-fp32", "preserve"];
+
+/// True iff the SPIR-V module declares `OpCapability DenormPreserve`. Reads the words, so a
+/// flag that `slangc` silently ignored cannot pass for one that took effect.
+pub fn declares_denorm_preserve(spirv: &[u8]) -> bool {
+    const OP_CAPABILITY: u32 = 17;
+    const DENORM_PRESERVE_CAP: u32 = 4464;
+    let words: Vec<u32> = spirv
+        .chunks_exact(4)
+        .map(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]]))
+        .collect();
+    // Header is 5 words; instructions follow, each led by (word_count << 16) | opcode.
+    let mut i = 5;
+    while i < words.len() {
+        let (count, op) = ((words[i] >> 16) as usize, words[i] & 0xffff);
+        if count == 0 {
+            return false;
+        }
+        if op == OP_CAPABILITY && words.get(i + 1) == Some(&DENORM_PRESERVE_CAP) {
+            return true;
+        }
+        i += count;
+    }
+    false
+}
+
+/// Compile Slang `source` to SPIR-V with `slangc` (plus `extra` arguments), entry point `entry`.
 pub fn slang_to_spirv(
     work: &Path,
     tag: &str,
     source: &str,
     entry: &str,
+    extra: &[&str],
 ) -> Result<Vec<u8>, String> {
     std::fs::create_dir_all(work).map_err(|e| e.to_string())?;
     let src = work.join(format!("{tag}.slang"));
@@ -76,6 +105,7 @@ pub fn slang_to_spirv(
     std::fs::write(&src, source).map_err(|e| e.to_string())?;
     let out = Command::new(slangc())
         .arg(&src)
+        .args(extra)
         .args([
             "-entry", entry, "-stage", "compute", "-target", "spirv", "-o",
         ])
@@ -92,13 +122,15 @@ pub fn slang_to_spirv(
     std::fs::read(&spv).map_err(|e| format!("read spv: {e}"))
 }
 
-/// How strictly to compare: the contract tier, the stride (1 is exhaustive) and an optional
-/// waiver on input bits (see [`Report::waived`]).
+/// How strictly to compare: the contract tier, the stride (1 is exhaustive), an optional waiver
+/// on input bits (see [`Report::waived`]) and extra `slangc` arguments.
 #[derive(Clone, Copy)]
 pub struct Options {
     pub tier: Tier,
     pub stride: u32,
     pub waive: fn(u32) -> bool,
+    /// Extra `slangc` arguments, e.g. [`DENORM_PRESERVE`].
+    pub slangc_args: &'static [&'static str],
 }
 
 impl Options {
@@ -108,6 +140,7 @@ impl Options {
             tier,
             stride: 1,
             waive: |_| false,
+            slangc_args: &[],
         }
     }
 }
@@ -127,7 +160,7 @@ pub fn compare_unary_f32_vulkan(
     cand: &Kernel,
     opts: Options,
 ) -> Result<Report, String> {
-    let spirv = slang_to_spirv(work, tag, &cand.source, &cand.name)?;
+    let spirv = slang_to_spirv(work, tag, &cand.source, &cand.name, opts.slangc_args)?;
 
     let inst = instance()?;
     let physical = inst
