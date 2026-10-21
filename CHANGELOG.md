@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.2
+
+Third target: Vulkan. `vulkan::compare_unary_f32_vulkan` runs an `unpopped-slang` candidate
+(`slangc` -> SPIR-V -> `vulkane` 0.16.0) on any Vulkan compute device against the cpu-c
+reference, over all 2^32 f32, through the same loop as CUDA (`gpu::compare_with_runner`, factored
+out of the CUDA path with no behaviour change). `Report::waived` counts mismatches the caller
+declared known (`Options::waive`), kept out of `mismatches` so a test can pin the exact size.
+
+Finding, pinned by `tests/vulkan_target.rs`: on both AMD Radeon 610M and RTX 4070 Laptop the
+Slang relu differs from cpu-c/CUDA on exactly the 8,388,607 negative subnormals (the device
+flushes them in `x < 0.0`, then returns `x` unchanged). Waived and counted; a second test shows
+the waiver does not hide a real bug (`abs` is still rejected).
+
 ## 0.0.1
 
 Fix: the first CI run on `windows-latest` failed (`'cl' is not recognized`) because the VS 18

@@ -14,7 +14,8 @@ use baracuda_nvrtc::Program;
 use crate::{compile_with, Kernel, Report, Tier, SENTINEL_A, SENTINEL_B};
 
 /// Elements per GPU launch.
-const GPU_CHUNK: usize = 1 << 22;
+/// Elements per GPU launch.
+pub(crate) const GPU_CHUNK: usize = 1 << 22;
 
 fn key_of(b: u32) -> i64 {
     if b & 0x8000_0000 != 0 {
@@ -80,14 +81,6 @@ pub fn compare_unary_f32_gpu(
     tier: Tier,
     stride: u32,
 ) -> Result<Report, String> {
-    assert!(stride >= 1);
-    std::fs::create_dir_all(work).map_err(|e| e.to_string())?;
-    let dll = build_ref_dll(work, tag, reference)?;
-    let lib =
-        unsafe { libloading::Library::new(&dll) }.map_err(|e| format!("load ref dll: {e}"))?;
-    let ref_fn: libloading::Symbol<RefFn> =
-        unsafe { lib.get(b"ref_entry") }.map_err(|e| format!("ref_entry: {e}"))?;
-
     baracuda_driver::init().map_err(|e| format!("cuda init: {e:?}"))?;
     let device = Device::get(0).map_err(|e| format!("device: {e:?}"))?;
     let (maj, min) = device
@@ -103,17 +96,6 @@ pub fn compare_unary_f32_gpu(
         .get_function(&cand.name)
         .map_err(|e| format!("function: {e:?}"))?;
 
-    let sa = f32::from_bits(SENTINEL_A);
-    let sb = f32::from_bits(SENTINEL_B);
-    let mut rep = Report {
-        exhaustive: stride == 1,
-        ..Report::default()
-    };
-    let mut inp = vec![0f32; GPU_CHUNK];
-    let mut ro = vec![0f32; GPU_CHUNK];
-    let mut ro2 = vec![0f32; GPU_CHUNK];
-    let mut co = vec![0f32; GPU_CHUNK];
-    let mut co2 = vec![0f32; GPU_CHUNK];
     let d_in = DeviceBuffer::<f32>::new(&ctx, GPU_CHUNK).map_err(|e| format!("alloc: {e:?}"))?;
     let d_out = DeviceBuffer::<f32>::new(&ctx, GPU_CHUNK).map_err(|e| format!("alloc: {e:?}"))?;
 
@@ -151,6 +133,41 @@ pub fn compare_unary_f32_gpu(
         Ok(())
     };
 
+    compare_with_runner(work, tag, reference, tier, stride, |_| false, run_gpu)
+}
+
+/// The comparison loop, shared by every GPU target: `run(input, seed, out)` runs the candidate over
+/// `input` with its output cells pre-seeded with `seed`, and fills `out[..input.len()]`.
+/// `waive(input_bits)` marks inputs whose mismatch is a declared, counted exception.
+pub(crate) fn compare_with_runner(
+    work: &Path,
+    tag: &str,
+    reference: &Kernel,
+    tier: Tier,
+    stride: u32,
+    waive: fn(u32) -> bool,
+    mut run: impl FnMut(&[f32], f32, &mut [f32]) -> Result<(), String>,
+) -> Result<Report, String> {
+    assert!(stride >= 1);
+    std::fs::create_dir_all(work).map_err(|e| e.to_string())?;
+    let dll = build_ref_dll(work, tag, reference)?;
+    let lib =
+        unsafe { libloading::Library::new(&dll) }.map_err(|e| format!("load ref dll: {e}"))?;
+    let ref_fn: libloading::Symbol<RefFn> =
+        unsafe { lib.get(b"ref_entry") }.map_err(|e| format!("ref_entry: {e}"))?;
+
+    let sa = f32::from_bits(SENTINEL_A);
+    let sb = f32::from_bits(SENTINEL_B);
+    let mut rep = Report {
+        exhaustive: stride == 1,
+        ..Report::default()
+    };
+    let mut inp = vec![0f32; GPU_CHUNK];
+    let mut ro = vec![0f32; GPU_CHUNK];
+    let mut ro2 = vec![0f32; GPU_CHUNK];
+    let mut co = vec![0f32; GPU_CHUNK];
+    let mut co2 = vec![0f32; GPU_CHUNK];
+
     let mut pos: u64 = 0;
     while pos < (1u64 << 32) {
         let mut n = 0usize;
@@ -165,8 +182,8 @@ pub fn compare_unary_f32_gpu(
             ref_fn(inp.as_ptr(), ro.as_mut_ptr(), n as i64);
             ref_fn(inp.as_ptr(), ro2.as_mut_ptr(), n as i64);
         }
-        run_gpu(&inp[..n], sa, &mut co)?;
-        run_gpu(&inp[..n], sb, &mut co2)?;
+        run(&inp[..n], sa, &mut co)?;
+        run(&inp[..n], sb, &mut co2)?;
         for i in 0..n {
             let (ib, rb, cb) = (inp[i].to_bits(), ro[i].to_bits(), co[i].to_bits());
             if rb == SENTINEL_A && ro2[i].to_bits() == SENTINEL_B {
@@ -178,6 +195,7 @@ pub fn compare_unary_f32_gpu(
             rep.checked += 1;
             match tier_ok(tier, rb, cb) {
                 Some(d) => rep.max_ulp = rep.max_ulp.max(d),
+                None if waive(ib) => rep.waived += 1,
                 None => {
                     rep.mismatches += 1;
                     if rep.first.len() < 5 {

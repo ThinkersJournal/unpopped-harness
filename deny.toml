@@ -17,6 +17,9 @@ allow = [
     "Unicode-3.0",
     "Zlib",
     "CC0-1.0",
+    # webpki-roots (Mozilla CA bundle as data), reached only through vulkane's build-dependency
+    # vulkan_gen -> ureq (fetching vk.xml). A permissive data licence; the PM may prefer otherwise.
+    "CDLA-Permissive-2.0",
 ]
 
 [bans]
