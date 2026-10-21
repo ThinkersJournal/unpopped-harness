@@ -10,6 +10,7 @@ pub mod bench;
 pub mod chain_bench;
 pub mod gpu;
 pub mod gpu_bench;
+pub mod vulkan;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -66,6 +67,19 @@ impl Kernel {
     }
 }
 
+impl Kernel {
+    /// Lower a unary f32 elementwise `OpDef` through the Slang emitter (.slang source).
+    pub fn from_unary_f32_slang(op: &OpDef) -> Kernel {
+        let d = OperandDesc::new(1, &[CHUNK as i64 - 1], &[1], ElementKind::F32, 256);
+        let key = structure_key(OpCategory::UnaryElementwise, &[d, d], ArchSku::Sm89);
+        let k: GeneratedKernel = generate(op, &key, &unpopped_slang::Slang);
+        Kernel {
+            name: k.name,
+            source: k.source,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Report {
     /// Inputs compared.
@@ -77,6 +91,10 @@ pub struct Report {
     /// Outputs still carrying the harness sentinel: the kernel never wrote them.
     pub ref_never_wrote: u64,
     pub cand_never_wrote: u64,
+    /// Inputs where the candidate differed but the caller declared that difference known and
+    /// waived it (a `waive` predicate on the input bits). Not counted in `mismatches`, so a
+    /// waiver is visible in the report and a test can pin its exact size.
+    pub waived: u64,
     /// First few failing inputs as `(input_bits, ref_bits, cand_bits)`.
     pub first: Vec<(u32, u32, u32)>,
     /// True iff every one of the 2^32 inputs was compared (stride 1).
