@@ -5,7 +5,10 @@
 
 use std::path::PathBuf;
 use unpopped::ir::{input, konst, BinaryOp, Expr, OpDef, UnaryOp};
-use unpopped_harness::vulkan::{compare_unary_f32_vulkan, vulkan_devices, Options};
+use unpopped_harness::vulkan::{
+    compare_unary_f32_vulkan, declares_denorm_preserve, slang_to_spirv, vulkan_devices, Options,
+    DENORM_PRESERVE,
+};
 use unpopped_harness::{Kernel, Tier};
 use unpopped_vocab::ElementKind;
 
@@ -141,4 +144,44 @@ fn vulkan_waiver_does_not_cover_a_real_bug() {
     )
     .unwrap();
     assert!(!rep.accepted() && rep.mismatches > 0, "{rep:?}");
+}
+
+/// The flag takes effect: the SPIR-V declares `DenormPreserve` with it and not without. This is
+/// what stops the next test passing (or failing) because `slangc` ignored its arguments.
+#[test]
+fn slangc_denorm_flag_reaches_the_spirv() {
+    let c = Kernel::from_unary_f32_slang(&def("cand_k", relu()));
+    let plain = slang_to_spirv(&work(), "vk_flag0", &c.source, &c.name, &[]).unwrap();
+    let kept = slang_to_spirv(&work(), "vk_flag1", &c.source, &c.name, DENORM_PRESERVE).unwrap();
+    assert!(!declares_denorm_preserve(&plain));
+    assert!(declares_denorm_preserve(&kept));
+}
+
+/// With `DenormPreserve` the Slang relu is EXACT against cpu-c on every device: no waiver, and
+/// `waived` stays 0. (NVIDIA reports `shaderDenormPreserveFloat32 = false` yet honours it; the
+/// property is not a reliable gate there, so this measurement is the arbiter.)
+#[test]
+fn vulkan_relu_is_exact_with_denorm_preserve_on_every_device() {
+    let r = Kernel::from_unary_f32(&def("ref_k", relu()));
+    let c = Kernel::from_unary_f32_slang(&def("cand_k", relu()));
+    let only: Option<usize> = std::env::var("UNPOPPED_VULKAN_DEVICE")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let mut failed = Vec::new();
+    for (i, name) in vulkan_devices().unwrap().iter().enumerate() {
+        if only.is_some_and(|o| o != i) {
+            continue;
+        }
+        let opts = Options {
+            slangc_args: DENORM_PRESERVE,
+            ..Options::exhaustive(Tier::Exact)
+        };
+        let tag = format!("vk_relu_dp_{i}");
+        let rep = compare_unary_f32_vulkan(&work(), &tag, i, &r, &c, opts).unwrap();
+        println!("{name}: {rep:?}");
+        if !rep.accepted() || rep.waived != 0 {
+            failed.push(format!("{name}: {rep:?}"));
+        }
+    }
+    assert!(failed.is_empty(), "{failed:#?}");
 }

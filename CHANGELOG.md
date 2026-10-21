@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.3
+
+`Options::slangc_args` and `vulkan::DENORM_PRESERVE` (`-denorm-mode-fp32 preserve`). With it the
+Slang relu is exact against cpu-c over all 2^32 f32 on both AMD Radeon 610M and RTX 4070 Laptop,
+`waived == 0` (the 0.0.2 finding was the device flushing negative subnormals by default).
+`declares_denorm_preserve` reads the SPIR-V capability word, and a test uses it so a flag that
+`slangc` ignored cannot pass for one that took effect. NVIDIA reports
+`shaderDenormPreserveFloat32 = false` yet honours the mode, so the property is not a usable gate;
+this measurement is.
+
 ## 0.0.2
 
 Third target: Vulkan. `vulkan::compare_unary_f32_vulkan` runs an `unpopped-slang` candidate
