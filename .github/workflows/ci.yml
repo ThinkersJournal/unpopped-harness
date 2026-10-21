@@ -20,8 +20,6 @@ jobs:
   verify:
     timeout-minutes: 90
     runs-on: windows-latest
-    env:
-      UNPOPPED_VCVARS: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: rustup show active-toolchain
@@ -41,8 +39,6 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     timeout-minutes: 150
     runs-on: windows-latest
-    env:
-      UNPOPPED_VCVARS: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: cargo test --release --test rewrite_candidates

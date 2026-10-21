@@ -94,12 +94,34 @@ impl Report {
     }
 }
 
+/// `vcvars64.bat` of the newest Visual Studio with the C++ tools: `UNPOPPED_VCVARS` if set,
+/// else whatever `vswhere` reports, else the VS 18 Community default.
 fn vcvars() -> PathBuf {
-    std::env::var_os("UNPOPPED_VCVARS").map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from(
-            r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
-        )
-    })
+    if let Some(p) = std::env::var_os("UNPOPPED_VCVARS") {
+        return PathBuf::from(p);
+    }
+    let vswhere =
+        PathBuf::from(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
+    if let Ok(out) = Command::new(vswhere)
+        .args([
+            "-latest",
+            "-products",
+            "*",
+            "-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-property",
+            "installationPath",
+        ])
+        .output()
+    {
+        let root = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if out.status.success() && !root.is_empty() {
+            return PathBuf::from(root).join(r"VC\Auxiliary\Build\vcvars64.bat");
+        }
+    }
+    PathBuf::from(
+        r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
+    )
 }
 
 /// Compile with `cl /O2` through a generated .bat (one quoting layer).
