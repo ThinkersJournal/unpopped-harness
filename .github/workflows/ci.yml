@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Windows, not Linux: the harness compiles its cpu-c references with MSVC `cl`
+  # (src/lib.rs `compile_with`), so a Linux job could not run one test.
+  # The toolchain is NOT named here; rustup reads rust-toolchain.toml.
+  verify:
+    timeout-minutes: 90
+    runs-on: windows-latest
+    env:
+      UNPOPPED_VCVARS: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: rustup show active-toolchain
+      - run: cargo fmt --all --check
+      # --all-targets COMPILES every test, including the CUDA ones that need a GPU.
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo doc --no-deps
+      # Tests that need only `cl`. The CUDA tests (cuda_spike, gpu_target, bench_gpu,
+      # chain_bench, chain_ptx, new_shapes) need an NVIDIA GPU + nvrtc and can run only
+      # on a self-hosted runner (CireSnave 5.1g); they are NOT run here and are not #[ignore]d.
+      # Measured locally: planted_bugs alone takes ~18 min (exhaustive 2^32 comparisons), same in debug and release.
+      - run: cargo test --release --lib --test planted_bugs --test bench_unary
+
+  # rewrite_candidates takes ~72 min (measured locally: 4304 s), too slow for every push.
+  # It runs weekly and on dispatch, so it is exercised rather than merely declared.
+  slow:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 150
+    runs-on: windows-latest
+    env:
+      UNPOPPED_VCVARS: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: cargo test --release --test rewrite_candidates
+
+  deny:
+    name: cargo deny (advisories, licences, bans, sources)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        with:
+          command: check advisories licenses bans sources
+
+  spdx:
+    name: Every source file declares the licence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Self-test the gate (it must be able to fail)
+        run: bash .github/spdx_gate.sh --self-test
+      - name: Every tracked source file declares the licence
+        run: bash .github/spdx_gate.sh

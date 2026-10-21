@@ -1,0 +1,20 @@
+[package]
+name = "unpopped-harness"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+description = "External test and profile harnesses for Unpopped emitters: exhaustive cross-backend kernel comparison, per-op timing."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ThinkersJournal/unpopped-harness"
+publish = false
+
+# Depends on the PUBLISHED crates only (CireSnave's sources rule, 2026-10-07):
+# no path or git deps into the Unpopped or Baracuda trees.
+[dependencies]
+unpopped = "0.20.13"
+unpopped-cpu-c = "0.20.13"
+unpopped-vocab = "0.20.13"
+baracuda-cuda-emit = { version = "0.20.1", features = ["nvrtc"] }
+baracuda-driver = "0.0.1-alpha.140"
+baracuda-nvrtc = "0.0.1-alpha.140"
+libloading = "0.9"
