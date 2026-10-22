@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.5
+
+`exactness::{verdict_of, unary_f32_record}` and `vulkan::device_stamp`: the harness now emits the
+`unpopped::exactness` record (Unpopped 0.20.19) for a run. `Exact` only from an accepted
+exhaustive run with nothing waived; `Flushes` from any difference, waived or not, or an unwritten
+output; a clean sample concludes nothing. The stamp carries the device, API version, vendor and
+driver version, and the `slangc` arguments. A test runs the Slang relu on every Vulkan device with
+and without `DENORM_PRESERVE` and feeds the records to `precision_of_measured`: the declared
+precision follows the measurement on each device. Dependencies move to Unpopped 0.20.19.
+
 ## 0.0.4
 
 Docs only: the "cpu-c `Max` vs IR docs" open fact is resolved (Unpopped 0.20.15 corrected the IR comment).

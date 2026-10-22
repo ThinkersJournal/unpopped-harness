@@ -185,3 +185,81 @@ fn vulkan_relu_is_exact_with_denorm_preserve_on_every_device() {
     }
     assert!(failed.is_empty(), "{failed:#?}");
 }
+
+/// The measurement reaches the Exact claim. On every device, the Slang relu is run exhaustively
+/// with and without `DENORM_PRESERVE`; each run becomes a record and Unpopped is asked what the
+/// relu's precision is on that stamp. The answer must follow the run, in both directions: a run
+/// that was exact is declared `correctly_rounded`, and a run that differed (the default flush on
+/// the devices tried so far) is not. A stamp for the other flag set has no record and declines.
+#[test]
+fn the_declared_precision_follows_the_measurement_on_every_device() {
+    use unpopped::contract::{precision_of_measured, AccuracyKey, MeasuredOn};
+    use unpopped::exactness::ExactnessLedger;
+    use unpopped_harness::exactness::unary_f32_record;
+    use unpopped_harness::vulkan::device_stamp;
+    use unpopped_vocab::TargetId;
+
+    let target = TargetId::parse("vulkan:sg64.ops-abr.arith-f16.cm-none").unwrap();
+    let op = def("relu", relu());
+    let r = Kernel::from_unary_f32(&def("ref_k", relu()));
+    let c = Kernel::from_unary_f32_slang(&def("cand_k", relu()));
+    let only: Option<usize> = std::env::var("UNPOPPED_VULKAN_DEVICE")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let mut failed = Vec::new();
+    for (i, name) in vulkan_devices().unwrap().iter().enumerate() {
+        if only.is_some_and(|o| o != i) {
+            continue;
+        }
+        let mut ledger = ExactnessLedger::new();
+        let mut expected = Vec::new();
+        for (label, args) in [("default", &[][..]), ("preserve", DENORM_PRESERVE)] {
+            let stamp = device_stamp(i, target, args).unwrap();
+            let opts = Options {
+                slangc_args: if args.is_empty() {
+                    &[]
+                } else {
+                    DENORM_PRESERVE
+                },
+                ..Options::exhaustive(Tier::Exact)
+            };
+            let tag = format!("vk_relu_rec_{label}_{i}");
+            let rep = compare_unary_f32_vulkan(&work(), &tag, i, &r, &c, opts).unwrap();
+            println!("{name} {label}: {rep:?}");
+            let record =
+                unary_f32_record(&stamp, &op, &rep).expect("an exhaustive run always concludes");
+            let exact = rep.accepted() && rep.waived == 0;
+            ledger.push(record);
+            expected.push((label, stamp, exact));
+        }
+        for (label, stamp, exact) in &expected {
+            let m = MeasuredOn {
+                stamp,
+                ledger: &ledger,
+                dtype: ElementKind::F32,
+            };
+            let got = precision_of_measured(&op.body, &AccuracyKey::for_target(target), Some(&m));
+            let want = if *exact {
+                ("correctly_rounded", Some(0))
+            } else {
+                ("approximate", None)
+            };
+            if got != want {
+                failed.push(format!("{name} {label}: got {got:?}, want {want:?}"));
+            }
+        }
+        // The control that makes the rows above mean something: the preserving run is exact on
+        // every device tried, so at least that row admitted; and an unmeasured stamp declines.
+        let unmeasured = device_stamp(i, target, &["-O0"]).unwrap();
+        let m = MeasuredOn {
+            stamp: &unmeasured,
+            ledger: &ledger,
+            dtype: ElementKind::F32,
+        };
+        let got = precision_of_measured(&op.body, &AccuracyKey::for_target(target), Some(&m));
+        if got != ("approximate", None) {
+            failed.push(format!("{name} unmeasured args admitted: {got:?}"));
+        }
+    }
+    assert!(failed.is_empty(), "{failed:#?}");
+}

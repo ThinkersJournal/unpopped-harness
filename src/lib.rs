@@ -8,6 +8,7 @@
 
 pub mod bench;
 pub mod chain_bench;
+pub mod exactness;
 pub mod gpu;
 pub mod gpu_bench;
 pub mod vulkan;
