@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.6
+
+`binary::compare_binary_f32_sampled` and `Kernel::from_binary_f32`: binary f32 bodies get a stratified
+screen. Every ordered pair of operand classes (sign x biased exponent, 512 x 512 cells) gets
+`per_cell` seeded pairs with corner mantissas, plus a 16 x 16 grid of edge values. The result
+records the cells, edge pairs, seed and sample size. A sample never accepts: the verdict is
+`Flushes` or nothing (`exactness::verdict_of`). Tests plant defects confined to one operand-class
+pair, one edge pair and subnormal pairs; the stratification finds each, and identical kernels
+conclude nothing.
+
 ## 0.0.5
 
 `exactness::{verdict_of, unary_f32_record}` and `vulkan::device_stamp`: the harness now emits the

@@ -7,6 +7,7 @@
 //! mode that cannot accept; see [`Report::accepted`].
 
 pub mod bench;
+pub mod binary;
 pub mod chain_bench;
 pub mod exactness;
 pub mod gpu;
