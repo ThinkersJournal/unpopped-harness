@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.4
+
+Docs only: the "cpu-c `Max` vs IR docs" open fact is resolved (Unpopped 0.20.15 corrected the IR comment).
+
 ## 0.0.3
 
 `Options::slangc_args` and `vulkan::DENORM_PRESERVE` (`-denorm-mode-fp32 preserve`). With it the
