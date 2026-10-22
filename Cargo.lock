@@ -568,9 +568,9 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "unpopped"
-version = "0.20.13"
+version = "0.20.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71a97b084ea6e1aade272fa2d8b579180ecad32b196984a32996c2df6dd4287f"
+checksum = "efeda456084e9fd211a8d38baba3cc79b73526f894d4d61e27045081af1a94b6"
 dependencies = [
  "libm",
  "serde",
@@ -580,9 +580,9 @@ dependencies = [
 
 [[package]]
 name = "unpopped-cpu-c"
-version = "0.20.13"
+version = "0.20.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8ac42db3ec1e21971e66827e54f5abf42583240922588a01b0ada04ae9bb298"
+checksum = "831247878a670dce316dd1f5d4acacc7bf2ba1aaf8a30aeabd1948b8b2f34a90"
 dependencies = [
  "unpopped",
  "unpopped-vocab",
@@ -590,7 +590,7 @@ dependencies = [
 
 [[package]]
 name = "unpopped-harness"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "baracuda-cuda-emit",
  "baracuda-driver",
@@ -605,9 +605,9 @@ dependencies = [
 
 [[package]]
 name = "unpopped-slang"
-version = "0.20.13"
+version = "0.20.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ae34521856a97b5fa8b9bf758aedb85754e14c1167ed97f1a050c2ad0fad130"
+checksum = "a52570427f93c19dcc86148f4296a321f5c8cd43c97188edfb94a0b9770ad53f"
 dependencies = [
  "unpopped",
  "unpopped-vocab",
@@ -615,9 +615,9 @@ dependencies = [
 
 [[package]]
 name = "unpopped-vocab"
-version = "0.20.13"
+version = "0.20.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37175b3095d5406144ee33e51c09a38df1d4509f01374688e5111581868d5e0d"
+checksum = "5975fb6c13a91227c63b05acdf93e788d6a7c3a767a9cf82b895fb600ee5befd"
 dependencies = [
  "float8",
  "half",

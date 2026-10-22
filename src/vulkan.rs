@@ -48,6 +48,44 @@ pub fn vulkan_devices() -> Result<Vec<String>, String> {
         .collect())
 }
 
+/// The stamp a record made on Vulkan device `device_index` (see [`vulkan_devices`]) carries: the
+/// device, the API version, the driver version and vendor as the driver reports them, and the
+/// `slangc` arguments the kernel was built with. A record is a measurement of a driver and a flag
+/// set, not of a chip: a new driver or a different argument set is a different stamp, and Unpopped
+/// then applies no record. `target` is the Unpopped target token the cell is keyed to.
+pub fn device_stamp(
+    device_index: usize,
+    target: unpopped_vocab::TargetId,
+    slangc_args: &[&str],
+) -> Result<unpopped::exactness::DeviceStamp, String> {
+    let inst = instance()?;
+    let physical = inst
+        .enumerate_physical_devices()
+        .map_err(|e| format!("enumerate: {e}"))?
+        .into_iter()
+        .filter(|pd| pd.find_queue_family(QueueFlags::COMPUTE).is_some())
+        .nth(device_index)
+        .ok_or_else(|| format!("no compute-capable Vulkan device at index {device_index}"))?;
+    let props = physical.properties();
+    let captured_unix_s = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    Ok(unpopped::exactness::DeviceStamp::new(
+        unpopped_vocab::HwStamp {
+            target,
+            device_name: props.device_name().to_string(),
+            runtime_version: format!("{:?}", props.api_version()),
+            captured_unix_s,
+        },
+        format!(
+            "vendor={:#x} driver={:#x}",
+            props.vendor_id(),
+            props.driver_version()
+        ),
+        slangc_args.iter().map(|a| (*a).to_string()).collect(),
+    ))
+}
+
 /// `slangc` on PATH, else `%VULKAN_SDK%\Bin\slangc`.
 fn slangc() -> PathBuf {
     if let Some(sdk) = std::env::var_os("VULKAN_SDK") {
