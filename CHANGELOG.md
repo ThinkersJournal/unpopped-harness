@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.0.9
+
+`ledger`: the exactness ledger on disk (step 1 of `docs/design-per-device-decline.md` in Unpopped).
+JSON Lines, `schema` first (`unpopped-exactness-ledger/1`); each line is a record plus what it was
+measured against: `compiler_version` (`vulkan::slangc_version`, since the stamp has the compiler's
+arguments but not its version), `kernel_hash` (SHA-256 of the SPIR-V or source that ran),
+`emitter_version` (pinned in `ledger::EMITTER_VERSIONS`, which a test checks against `Cargo.lock`)
+and `coverage` (exhaustive or sampled, tuples, seed). Unknown fields survive a round trip. An unknown
+schema or a malformed line is a typed `LineError` returned with its line number, never a panic and
+never silently dropped. Unpopped 0.20.x has no fields for the provenance, so
+`Ledger::current_for(compiler_version, kernel_hash)` applies it: an entry measured against another
+compiler or kernel is set aside and counted, so a stale `Exact` is not believed. The Vulkan
+precision test now writes the ledger, reads it back and takes its answers from the file, with a
+stale-hash control. New dependencies: `sha2` 0.11, `serde_json` 1.
+
 ## 0.0.8
 
 `double::compare_{unary,binary,ternary}_f64_sampled` and `Kernel::from_{unary,binary,ternary}_f64`:
