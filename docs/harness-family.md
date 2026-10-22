@@ -68,5 +68,6 @@ harnesses rather than separate tools.
 - Exhaustive 2^32 testing only works for unary f32 bodies; other shapes need stratified
   sampling plus edge cases, and a sample can never accept.
 - Raw timings are not comparable across hardware; harness C must normalize.
-- Unverified: whether the cpu-c `Max` behaving like relu (NaN-propagating, -0.0-preserving)
-  contradicts the IR docs, which say max scrubs NaN. Observed on the harness, not yet chased.
+- Resolved: cpu-c `Max` behaving like relu was not a bug. `BinaryOp::Max` propagates NaN and keeps A on ties,
+  so `Max(x, 0)` is bit-identical to `Relu` (exhaustive 2^32, Exact, through cpu-c only); the IR comment that said
+  max scrubs NaN was wrong and was corrected in Unpopped 0.20.15. Not run: CUDA and slang `Max(x, 0)`.
