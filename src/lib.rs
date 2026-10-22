@@ -12,6 +12,7 @@ pub mod chain_bench;
 pub mod exactness;
 pub mod gpu;
 pub mod gpu_bench;
+pub mod ternary;
 pub mod vulkan;
 
 use std::path::{Path, PathBuf};

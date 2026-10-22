@@ -67,7 +67,10 @@ harnesses rather than separate tools.
 
 - Exhaustive 2^32 testing only works for unary f32 bodies; binary f32 has a stratified
   screen (`binary::compare_binary_f32_sampled`, 0.0.6; 512 x 512 operand-class cells plus an edge
-  grid) that can find a flush but never accepts. Other shapes (f64, ternary) have neither.
+  grid) that can find a flush but never accepts. Ternary f32 has a pairwise screen
+  (`ternary::compare_ternary_f32_sampled`, 0.0.7; every operand pair x 512 x 512 classes plus a 16^3
+  edge grid): a defect that needs all three operand classes at once is reached only by chance. f64
+  has neither.
 - Raw timings are not comparable across hardware; harness C must normalize.
 - Resolved: cpu-c `Max` behaving like relu was not a bug. `BinaryOp::Max` propagates NaN and keeps A on ties,
   so `Max(x, 0)` is bit-identical to `Relu` (exhaustive 2^32, Exact, through cpu-c only); the IR comment that said

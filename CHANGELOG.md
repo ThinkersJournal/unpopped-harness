@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.7
+
+`ternary::compare_ternary_f32_sampled` and `Kernel::from_ternary_f32`: ternary f32 bodies (Select,
+Clamp, Fma) get a screen. 512^3 operand-class cells are too many, so every *pair* of operands is
+covered (three operand pairs x 512 x 512 class pairs x `per_cell` triples, the third operand's class
+random) plus a 16 x 16 x 16 edge grid. A defect needing all three classes at once is reached only by
+chance. A sample never accepts: the verdict is `Flushes` or nothing. The result records cells, edge
+triples, seed and sample size.
+
 ## 0.0.6
 
 `binary::compare_binary_f32_sampled` and `Kernel::from_binary_f32`: binary f32 bodies get a stratified
