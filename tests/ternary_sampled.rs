@@ -68,6 +68,10 @@ fn control_identical_kernels_conclude_nothing() {
     assert_eq!(verdict_of(&s.report), None);
     assert_eq!(s.cells, OPERAND_PAIRS * CELLS);
     assert_eq!(s.edge_triples, EDGE_TRIPLES);
+    // By construction, not by chance: every class pair of every operand pair is present in the
+    // generated bits. The driver also refuses a run that falls short, so a mutation that leaves
+    // a pair to a random class makes `run` fail.
+    assert_eq!(s.pair_cells, [CELLS; 3]);
     assert_eq!(s.report.checked, s.spec.triples());
 }
 

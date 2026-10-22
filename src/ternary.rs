@@ -66,6 +66,10 @@ pub struct SampledReport {
     pub cells: u64,
     /// Edge-grid triples compared in addition to the cells.
     pub edge_triples: u64,
+    /// Distinct class pairs actually present in the generated operand bits, for operand pairs
+    /// (0,1), (0,2), (1,2). Each is [`CELLS`] by construction; a driver that left a pair to
+    /// chance falls short.
+    pub pair_cells: [u64; 3],
     /// `(in0_bits, in1_bits, in2_bits)` of the first failing triples, parallel to `report.first`.
     pub first_operands: Vec<(u32, u32, u32)>,
 }
@@ -127,6 +131,9 @@ static uint32_t operand(uint32_t c) {{
     uint32_t m = ((r & 7u) < 3u) ? CORNER[r & 7u] : (uint32_t)((r >> 8) & 0x7fffffu);
     return ((c >> 8) << 31) | ((c & 255u) << 23) | m;
 }}
+static uint32_t cls(uint32_t b) {{ return ((b >> 31) << 8) | ((b >> 23) & 255u); }}
+/* seen[p]: class pairs of operand pair p, read back from the generated operand BITS. */
+static uint8_t seen[3][512 * 512];
 static float in0[CHUNK], in1[CHUNK], in2[CHUNK];
 static float ro[CHUNK], co[CHUNK], ro2[CHUNK], co2[CHUNK];
 static uint64_t checked = 0, mism = 0, maxulp = 0, rnw = 0, cnw = 0, nfirst = 0;
@@ -177,7 +184,13 @@ int main(void) {{
                     uint32_t c0 = (p == 2) ? cx : ca;
                     uint32_t c1 = (p == 0) ? cb : (p == 2 ? ca : cx);
                     uint32_t c2 = (p == 0) ? cx : cb;
-                    in0[n] = f_of(operand(c0)); in1[n] = f_of(operand(c1)); in2[n] = f_of(operand(c2));
+                    uint32_t x0 = operand(c0), x1 = operand(c1), x2 = operand(c2);
+                    in0[n] = f_of(x0); in1[n] = f_of(x1); in2[n] = f_of(x2);
+                    {{
+                        uint32_t u = (p == 2) ? cls(x1) : cls(x0);
+                        uint32_t v = (p == 0) ? cls(x1) : cls(x2);
+                        seen[p][u * 512u + v] = 1;
+                    }}
                     if (++n == CHUNK) {{ flush(n); n = 0; }}
                 }}
                 ++cells;
@@ -192,6 +205,11 @@ int main(void) {{
     printf("checked %llu\nmismatches %llu\nmax_ulp %llu\nref_never_wrote %llu\ncand_never_wrote %llu\n",
         (unsigned long long)checked, (unsigned long long)mism, (unsigned long long)maxulp,
         (unsigned long long)rnw, (unsigned long long)cnw);
+    for (int p = 0; p < 3; ++p) {{
+        uint64_t c = 0;
+        for (uint32_t i = 0; i < 512u * 512u; ++i) c += seen[p][i];
+        printf("pair_cells %d %llu\n", p, (unsigned long long)c);
+    }}
     printf("cells %llu\nedge_triples %llu\n", (unsigned long long)cells, (unsigned long long)edge_triples);
     return 0;
 }}
@@ -244,6 +262,7 @@ pub fn compare_ternary_f32_sampled(
         ..Report::default()
     };
     let mut first_operands = Vec::new();
+    let mut pair_cells = [0u64; 3];
     let (mut cells, mut edge_triples, mut seen) = (0u64, 0u64, 0);
     for line in text.lines() {
         let f: Vec<&str> = line.split_whitespace().collect();
@@ -259,14 +278,26 @@ pub fn compare_ternary_f32_sampled(
             ["max_ulp", v] => (r.max_ulp, seen) = (num(v)?, seen + 1),
             ["ref_never_wrote", v] => (r.ref_never_wrote, seen) = (num(v)?, seen + 1),
             ["cand_never_wrote", v] => (r.cand_never_wrote, seen) = (num(v)?, seen + 1),
+            ["pair_cells", p, v] => {
+                let p = num(p)? as usize;
+                if p > 2 {
+                    return Err(format!("{line}: operand pair out of range"));
+                }
+                (pair_cells[p], seen) = (num(v)?, seen + 1)
+            }
             ["cells", v] => (cells, seen) = (num(v)?, seen + 1),
             ["edge_triples", v] => (edge_triples, seen) = (num(v)?, seen + 1),
             _ => {}
         }
     }
-    if seen != 7 {
+    if seen != 10 {
         return Err(format!(
-            "harness output incomplete ({seen}/7 summary lines):\n{text}"
+            "harness output incomplete ({seen}/10 summary lines):\n{text}"
+        ));
+    }
+    if pair_cells != [CELLS; 3] {
+        return Err(format!(
+            "operand-pair coverage {pair_cells:?}, expected {CELLS} for each pair"
         ));
     }
     if r.checked != spec.triples() || cells != OPERAND_PAIRS * CELLS {
@@ -282,6 +313,7 @@ pub fn compare_ternary_f32_sampled(
         spec,
         cells,
         edge_triples,
+        pair_cells,
         first_operands,
     })
 }
