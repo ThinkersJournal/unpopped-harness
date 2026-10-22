@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.8
+
+`double::compare_{unary,binary,ternary}_f64_sampled` and `Kernel::from_{unary,binary,ternary}_f64`:
+f64 bodies get the screens f32 has. 2^64 is unwalkable, so every run is a sample and never accepts:
+the verdict is `Flushes` or nothing. An operand's class is sign x 11-bit exponent (4096 classes).
+Unary visits every class; binary every ordered class pair (4096^2 cells); ternary every class pair of
+every operand pair; each adds a 16^arity edge grid. Class coverage is read back from the operand
+bits and the driver refuses a run that falls short. `exactness::sampled_record` builds the record
+for any element kind. Tests plant defects confined to one class, one class pair (and the outer pair
+of a ternary), one edge tuple and subnormals, and pin that `Ulp` measures a 64-bit distance.
+
 ## 0.0.7
 
 `ternary::compare_ternary_f32_sampled` and `Kernel::from_ternary_f32`: ternary f32 bodies (Select,

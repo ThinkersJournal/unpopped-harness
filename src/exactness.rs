@@ -49,6 +49,20 @@ pub fn unary_f32_record(stamp: &DeviceStamp, op: &OpDef, rep: &Report) -> Option
     ))
 }
 
+/// The record for an `op` of element kind `kind` measured by the sampled run `rep` on `stamp`
+/// (the f64 screens in [`crate::double`], the binary and ternary f32 screens), or `None` if `rep`
+/// concluded nothing. A sample never yields `Exact`.
+#[must_use]
+pub fn sampled_record(
+    stamp: &DeviceStamp,
+    op: &OpDef,
+    kind: ElementKind,
+    rep: &Report,
+) -> Option<ExactnessRecord> {
+    let verdict = verdict_of(rep)?;
+    Some(ExactnessRecord::new(stamp.clone(), &op.body, kind, verdict))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

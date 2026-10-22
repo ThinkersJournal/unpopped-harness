@@ -9,6 +9,7 @@
 pub mod bench;
 pub mod binary;
 pub mod chain_bench;
+pub mod double;
 pub mod exactness;
 pub mod gpu;
 pub mod gpu_bench;
