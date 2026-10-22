@@ -70,7 +70,9 @@ harnesses rather than separate tools.
   grid) that can find a flush but never accepts. Ternary f32 has a pairwise screen
   (`ternary::compare_ternary_f32_sampled`, 0.0.7; every operand pair x 512 x 512 classes plus a 16^3
   edge grid): a defect that needs all three operand classes at once is reached only by chance. f64
-  has neither.
+  has screens of the same shape for all three arities (`double::compare_{unary,binary,ternary}_f64_sampled`,
+  0.0.8; 4096 sign x exponent classes, so 4096^2 cells per operand pair): they can find a flush and
+  never accept, so no f64 body is ever `Exact` from this harness.
 - Raw timings are not comparable across hardware; harness C must normalize.
 - Resolved: cpu-c `Max` behaving like relu was not a bug. `BinaryOp::Max` propagates NaN and keeps A on ties,
   so `Max(x, 0)` is bit-identical to `Relu` (exhaustive 2^32, Exact, through cpu-c only); the IR comment that said

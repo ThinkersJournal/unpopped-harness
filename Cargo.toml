@@ -1,6 +1,6 @@
 [package]
 name = "unpopped-harness"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 rust-version = "1.85"
 description = "External test and profile harnesses for Unpopped emitters: exhaustive cross-backend kernel comparison, per-op timing."
