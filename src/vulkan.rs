@@ -101,6 +101,26 @@ fn slangc() -> PathBuf {
     PathBuf::from("slangc")
 }
 
+/// The version `slangc` reports for itself (`slangc -v`), trimmed. The device stamp carries the
+/// compiler's arguments but not its version, and a compiler upgrade can change the SPIR-V.
+pub fn slangc_version() -> Result<String, String> {
+    let out = Command::new(slangc())
+        .arg("-v")
+        .output()
+        .map_err(|e| format!("spawn slangc: {e}"))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let text = if text.trim().is_empty() {
+        String::from_utf8_lossy(&out.stderr)
+    } else {
+        text
+    };
+    let v = text.trim();
+    if v.is_empty() {
+        return Err("slangc -v printed nothing".into());
+    }
+    Ok(v.to_string())
+}
+
 /// `slangc` arguments that make f32 subnormals behave as IEEE: SPIR-V `DenormPreserve 32`.
 /// Without them the device may flush subnormal inputs in compares and arithmetic.
 pub const DENORM_PRESERVE: &[&str] = &["-denorm-mode-fp32", "preserve"];
