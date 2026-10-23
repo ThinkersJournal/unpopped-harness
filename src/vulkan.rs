@@ -67,6 +67,7 @@ pub fn device_stamp(
         .nth(device_index)
         .ok_or_else(|| format!("no compute-capable Vulkan device at index {device_index}"))?;
     let props = physical.properties();
+    let compiler_version = slangc_version()?;
     let captured_unix_s = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
@@ -82,6 +83,7 @@ pub fn device_stamp(
             props.vendor_id(),
             props.driver_version()
         ),
+        compiler_version,
         slangc_args.iter().map(|a| (*a).to_string()).collect(),
     ))
 }
@@ -101,8 +103,8 @@ fn slangc() -> PathBuf {
     PathBuf::from("slangc")
 }
 
-/// The version `slangc` reports for itself (`slangc -v`), trimmed. The device stamp carries the
-/// compiler's arguments but not its version, and a compiler upgrade can change the SPIR-V.
+/// The version `slangc` reports for itself (`slangc -v`), trimmed. The device stamp carries it
+/// (`device_stamp`), because a compiler upgrade can change the SPIR-V.
 pub fn slangc_version() -> Result<String, String> {
     let out = Command::new(slangc())
         .arg("-v")

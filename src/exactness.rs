@@ -14,6 +14,7 @@ use unpopped::exactness::{DeviceStamp, ExactnessRecord, ExactnessVerdict};
 use unpopped::ir::OpDef;
 use unpopped_vocab::ElementKind;
 
+use crate::ledger::coverage_of;
 use crate::Report;
 
 /// What a run of a unary f32 kernel concluded, or `None` if it concluded nothing.
@@ -37,30 +38,52 @@ pub fn verdict_of(rep: &Report) -> Option<ExactnessVerdict> {
 }
 
 /// The record for a unary f32 `op` measured by `rep` on `stamp`, or `None` if `rep` concluded
-/// nothing (see [`verdict_of`]).
+/// nothing (see [`verdict_of`]). `kernel_hash` names the kernel that ran
+/// ([`crate::ledger::kernel_hash`]) and `emitter_version` the emitter that produced it
+/// ([`crate::ledger::emitter_version`]); coverage is what `rep` says it covered.
 #[must_use]
-pub fn unary_f32_record(stamp: &DeviceStamp, op: &OpDef, rep: &Report) -> Option<ExactnessRecord> {
+pub fn unary_f32_record(
+    stamp: &DeviceStamp,
+    op: &OpDef,
+    rep: &Report,
+    kernel_hash: &str,
+    emitter_version: &str,
+) -> Option<ExactnessRecord> {
     let verdict = verdict_of(rep)?;
     Some(ExactnessRecord::new(
         stamp.clone(),
         &op.body,
         ElementKind::F32,
         verdict,
+        kernel_hash,
+        emitter_version,
+        coverage_of(rep, None),
     ))
 }
 
 /// The record for an `op` of element kind `kind` measured by the sampled run `rep` on `stamp`
 /// (the f64 screens in [`crate::double`], the binary and ternary f32 screens), or `None` if `rep`
-/// concluded nothing. A sample never yields `Exact`.
+/// concluded nothing. A sample never yields `Exact`. `seed` is the sampler's, if it had one.
 #[must_use]
 pub fn sampled_record(
     stamp: &DeviceStamp,
     op: &OpDef,
     kind: ElementKind,
     rep: &Report,
+    kernel_hash: &str,
+    emitter_version: &str,
+    seed: Option<u64>,
 ) -> Option<ExactnessRecord> {
     let verdict = verdict_of(rep)?;
-    Some(ExactnessRecord::new(stamp.clone(), &op.body, kind, verdict))
+    Some(ExactnessRecord::new(
+        stamp.clone(),
+        &op.body,
+        kind,
+        verdict,
+        kernel_hash,
+        emitter_version,
+        coverage_of(rep, seed),
+    ))
 }
 
 #[cfg(test)]

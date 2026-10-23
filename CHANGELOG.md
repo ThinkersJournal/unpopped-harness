@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.10
+
+Adopts the Unpopped 0.21 record (now on unpopped 0.22.0 and baracuda-cuda-emit 0.22.0). BREAKING for
+this crate's API: the ledger schema is no longer the harness's. `ledger::{Ledger, LedgerEntry, Provenance,
+Coverage, CoverageKind, LineError, SCHEMA, Applied}` and `Ledger::current_for` are gone; the file is
+`unpopped::exactness::ExactnessLedger` (`parse_jsonl` / `to_jsonl`), whose record now carries the
+compiler version (in `DeviceStamp`), the kernel hash, the emitter version and the coverage, and whose
+lookup takes the kernel hash, so a stale `Exact` is withheld by Unpopped rather than filtered here.
+Kept here: `ledger::{EMITTER_VERSIONS, emitter_version, kernel_hash}` (the lockfile drift test stays),
+plus `coverage_of(&Report, seed)`, `write` and `read`. `exactness::unary_f32_record` and
+`sampled_record` take the kernel hash and emitter version (and the sampler seed); `vulkan::device_stamp`
+now fills in `slangc -v` itself. `tests/ledger.rs` no longer restates the schema (Unpopped tests it).
+Verified: fmt, clippy `-D warnings` over all targets, doc, `--lib --test ledger`.
+
 ## 0.0.9
 
 `ledger`: the exactness ledger on disk (step 1 of `docs/design-per-device-decline.md` in Unpopped).
