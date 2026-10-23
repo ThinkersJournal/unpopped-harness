@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.11
+
+Build tooling only: `run_local.bat` pins the installed Windows SDK (10.0.28000.0; it pinned 10.0.26100.0, which is gone, so local builds failed with `LNK1181: kernel32.lib`). No code change.
+
 ## 0.0.10
 
 Adopts the Unpopped 0.21 record (now on unpopped 0.22.0 and baracuda-cuda-emit 0.22.0). BREAKING for
