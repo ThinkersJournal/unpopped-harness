@@ -2,7 +2,7 @@
 //! Binary f32 comparison by stratified sampling. A sample can never accept.
 //!
 //! Exhaustive testing of a binary f32 body would take 2^64 pairs, so this run is a screen, not
-//! a proof: its verdict is [`ExactnessVerdict::Flushes`] (a difference was seen) or nothing at all
+//! a proof: its verdict is [`ExactnessVerdict::Flushes`](unpopped::exactness::ExactnessVerdict::Flushes) (a difference was seen) or nothing at all
 //! (see [`crate::exactness::verdict_of`]). `Report::exhaustive` is always `false` here, so
 //! `Report::accepted` is always `false` too.
 //!

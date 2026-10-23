@@ -196,10 +196,8 @@ fn the_declared_precision_follows_the_measurement_on_every_device() {
     use unpopped::contract::{precision_of_measured, AccuracyKey, MeasuredOn};
     use unpopped::exactness::ExactnessLedger;
     use unpopped_harness::exactness::unary_f32_record;
-    use unpopped_harness::ledger::{
-        emitter_version, kernel_hash, Coverage, Ledger, LedgerEntry, Provenance,
-    };
-    use unpopped_harness::vulkan::{device_stamp, slang_to_spirv, slangc_version};
+    use unpopped_harness::ledger::{emitter_version, kernel_hash, read, write};
+    use unpopped_harness::vulkan::{device_stamp, slang_to_spirv};
     use unpopped_vocab::TargetId;
 
     let target = TargetId::parse("vulkan:sg64.ops-abr.arith-f16.cm-none").unwrap();
@@ -215,8 +213,6 @@ fn the_declared_precision_follows_the_measurement_on_every_device() {
             continue;
         }
         let mut ledger = ExactnessLedger::new();
-        let mut on_disk = Ledger::default();
-        let compiler_version = slangc_version().unwrap();
         let mut expected = Vec::new();
         for (label, args) in [("default", &[][..]), ("preserve", DENORM_PRESERVE)] {
             let stamp = device_stamp(i, target, args).unwrap();
@@ -231,41 +227,28 @@ fn the_declared_precision_follows_the_measurement_on_every_device() {
             let tag = format!("vk_relu_rec_{label}_{i}");
             let rep = compare_unary_f32_vulkan(&work(), &tag, i, &r, &c, opts).unwrap();
             println!("{name} {label}: {rep:?}");
-            let record =
-                unary_f32_record(&stamp, &op, &rep).expect("an exhaustive run always concludes");
             let exact = rep.accepted() && rep.waived == 0;
             let spirv =
                 slang_to_spirv(&work(), &tag, &c.source, &c.name, opts.slangc_args).unwrap();
             let hash = kernel_hash(&spirv);
-            on_disk.entries.push(LedgerEntry::new(
-                record.clone(),
-                Provenance {
-                    compiler_version: compiler_version.clone(),
-                    kernel_hash: hash.clone(),
-                    emitter_version: emitter_version("unpopped-slang"),
-                    coverage: Coverage::of_report(&rep, None),
-                },
-            ));
+            let record =
+                unary_f32_record(&stamp, &op, &rep, &hash, &emitter_version("unpopped-slang"))
+                    .expect("an exhaustive run always concludes");
             ledger.push(record);
             expected.push((label, stamp, exact, hash));
         }
-        // The same answers, but from the file: write the entries, read them back, and admit only
-        // those measured against the SPIR-V about to run.
+        // The same answers, but from the file: write the ledger, read it back, and admit only
+        // records measured against the SPIR-V about to run (the hash is part of the lookup).
         let path = work().join(format!("ledger_{i}.jsonl"));
-        on_disk.write(&path).unwrap();
-        let read = Ledger::read(&path).unwrap();
-        assert_eq!(read.rejected, vec![], "{name}: lines not read back");
-        assert_eq!(read.entries.len(), 2, "{name}");
+        write(&ledger, &path).unwrap();
+        let from_file = read(&path).unwrap();
+        assert_eq!(from_file.rejected, vec![], "{name}: lines not read back");
+        assert_eq!(from_file.ledger, ledger, "{name}: the file is the ledger");
         for (label, stamp, exact, hash) in &expected {
-            let applied = read.current_for(&compiler_version, hash);
-            assert_eq!(applied.kept, 1, "{name} {label}: one entry per kernel");
-            assert_eq!(
-                applied.stale, 1,
-                "{name} {label}: the other kernel is set aside"
-            );
             let m = MeasuredOn {
                 stamp,
-                ledger: &applied.ledger,
+                kernel_hash: hash,
+                ledger: &from_file.ledger,
                 dtype: ElementKind::F32,
             };
             let got = precision_of_measured(&op.body, &AccuracyKey::for_target(target), Some(&m));
@@ -281,22 +264,23 @@ fn the_declared_precision_follows_the_measurement_on_every_device() {
             }
             // Known-bad control: the same file read against a kernel it was not measured on
             // admits nothing, however exact the entries were.
-            let stale = read.current_for(&compiler_version, "sha256:not-this-kernel");
             let m = MeasuredOn {
                 stamp,
-                ledger: &stale.ledger,
+                kernel_hash: "sha256:not-this-kernel",
+                ledger: &from_file.ledger,
                 dtype: ElementKind::F32,
             };
             let got = precision_of_measured(&op.body, &AccuracyKey::for_target(target), Some(&m));
-            if stale.kept != 0 || got != ("approximate", None) {
+            if got != ("approximate", None) {
                 failed.push(format!(
                     "{name} {label}: a stale kernel hash was admitted: {got:?}"
                 ));
             }
         }
-        for (label, stamp, exact, _) in &expected {
+        for (label, stamp, exact, hash) in &expected {
             let m = MeasuredOn {
                 stamp,
+                kernel_hash: hash,
                 ledger: &ledger,
                 dtype: ElementKind::F32,
             };
@@ -315,6 +299,7 @@ fn the_declared_precision_follows_the_measurement_on_every_device() {
         let unmeasured = device_stamp(i, target, &["-O0"]).unwrap();
         let m = MeasuredOn {
             stamp: &unmeasured,
+            kernel_hash: &expected[0].3,
             ledger: &ledger,
             dtype: ElementKind::F32,
         };

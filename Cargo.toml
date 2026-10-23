@@ -1,6 +1,6 @@
 [package]
 name = "unpopped-harness"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
 rust-version = "1.85"
 description = "External test and profile harnesses for Unpopped emitters: exhaustive cross-backend kernel comparison, per-op timing."
@@ -11,14 +11,14 @@ publish = false
 # Depends on the PUBLISHED crates only (CireSnave's sources rule, 2026-10-07):
 # no path or git deps into the Unpopped or Baracuda trees.
 [dependencies]
-unpopped = "0.20.19"
-unpopped-cpu-c = "0.20.19"
-unpopped-vocab = "0.20.19"
-baracuda-cuda-emit = { version = "0.20.1", features = ["nvrtc"] }
-baracuda-driver = "0.0.1-alpha.140"
-baracuda-nvrtc = "0.0.1-alpha.140"
+unpopped = "0.22.0"
+unpopped-cpu-c = "0.22.0"
+unpopped-vocab = "0.22.0"
+baracuda-cuda-emit = { version = "0.22.0", features = ["nvrtc"] }
+baracuda-driver = "0.0.1-alpha.153"
+baracuda-nvrtc = "0.0.1-alpha.153"
 libloading = "0.9"
 vulkane = "0.16.0"
-unpopped-slang = "0.20.19"
+unpopped-slang = "0.22.0"
 sha2 = "0.11.0"
 serde_json = "1.0.154"
