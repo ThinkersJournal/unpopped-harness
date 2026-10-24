@@ -1,5 +1,11 @@
 # Changelog
 
+## `0.0.16` — C14: do Vulkan devices preserve NaN, infinity and the sign of zero?
+
+`tests/vulkan_nan.rs` (needs `slangc` and a Vulkan driver; `UNPOPPED_PROBE=<name>` runs one probe): three Slang probes compared Exact against cpu-c over all 2^32 f32 inputs on every Vulkan device, plus a control (a NaN-blind candidate must be rejected; it is). Probes: `isnan` (`x != x`), `isinf` (`|x| > f32::MAX`), `zero_sign` (class of `1/x`: +inf, -inf or finite). Denormal inputs are waived and counted, because every device tried flushes them (a separate, recorded property).
+Measured 2026-10-24 (slangc 1.4.350.0, no `SignedZeroInfNanPreserve` declared by the Slang emitter): **AMD Radeon 610M and NVIDIA RTX 4070 Laptop both: 0 mismatches on all three probes** (waived denormals 0, 0, 12,582,910). So neither device is measured NOT preserving NaN, infinities or the sign of zero through a Slang kernel; the N2 ruling (Unpopped ROADMAP C2) keeps its "no spec text until a device is measured not preserving NaN" precondition unmet.
+Not measured: the device's *claim* (`shaderSignedZeroInfNanPreserveFloat32`; `vulkane` 0.16 does not expose it), other Vulkan devices, other ops, and f16/f64. A first draft of the zero probe compared `1/x` itself and reported 486M (AMD) and 592M (4070) mismatches: those were 1-ULP reciprocal differences, not zero handling, so the probe now classifies the reciprocal. Also found on the way: `unpopped-slang` spelled infinity as the C macro `INFINITY` (fixed in Unpopped 0.22.14), so the `isinf` probe uses `|x| > f32::MAX` until the harness depends on a published 0.22.14.
+
 ## `0.0.15` — Harness B and C over binary and ternary corpora
 
 `profile::profile_binary` (add, sub, mul, div, mul_add and the ten float `BinaryOp`s in `BINARY_OPS`: 15 ops) and `profile::profile_ternary` (select, mul_add3, sum3), through the same fingerprint, round-trip and per-emitter emit timing as `profile_unary`; the example prints all three. Binary and ternary use alignment 4 (the scalar schedule the comparison harnesses use), unary keeps 256.
