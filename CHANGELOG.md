@@ -1,5 +1,11 @@
 # Changelog
 
+## `0.0.14` — Harness B and C: stage profile and emitter hotspot map
+
+`profile` (`profile_unary`, `hotspots`; `cargo run --release --example profile`): for every unary op, SHA-256 fingerprints of the IR text and of each emitter's source (cpu-c, cuda, slang), the IR text round trip and `try_generate` timed (minimum of N), and a hotspot map that divides each emit time by that emitter's own median. A decline is recorded as data (`EmitterRow::declined`) and excluded from the median. No device needed. CI: the CodeRipper portfolio pin moves to `ee9c3950` (0.9.24).
+Measured 2026-10-24 (39 unary ops, 200 reps, release): no op reaches 3x its emitter's median (emit is 5-11 us everywhere), so there is no emit-time hotspot to dig into. Slang declines 8 ops: erf, gelu, erfc, asinh, acosh, atanh, cbrt, lgamma ("need polyfills"); cpu-c and cuda emit all 39.
+Tests: `tests/profile.rs` (planted 10x outlier found and only it, uniform control finds none; fingerprints deterministic; declines recorded and excluded).
+
 ## `0.0.13` — CI only: repin the CodeRipper portfolio workflow
 
 The `portfolio` job moves from coderipper `c665210a` to `d14a22b6` (installs 0.9.14, the old SHA installed 0.9.6). No code change.
