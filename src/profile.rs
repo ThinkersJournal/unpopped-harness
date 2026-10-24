@@ -11,7 +11,7 @@
 
 use std::time::Instant;
 
-use unpopped::ir::{input, OpDef};
+use unpopped::ir::{input, BinaryOp, Expr, OpDef};
 use unpopped::{op_from_text, op_to_text, try_generate, Backend};
 use unpopped_vocab::{structure_key, ArchSku, ElementKind, OpCategory, OperandDesc};
 
@@ -69,19 +69,21 @@ fn min_ns(reps: u32, mut f: impl FnMut()) -> u64 {
         .expect("reps.max(1) >= 1")
 }
 
-/// Profile every unary op in [`UNARY_OPS`] on every emitter in [`EMITTERS`].
-pub fn profile_unary(reps: u32) -> Vec<OpProfile> {
-    let d = OperandDesc::new(1, &[CHUNK as i64 - 1], &[1], ElementKind::F32, 256);
-    let key = structure_key(OpCategory::UnaryElementwise, &[d, d], ArchSku::Sm89);
-    UNARY_OPS
-        .iter()
-        .map(|(name, uop)| {
-            let def = OpDef::elementwise(
-                &format!("def_{name}"),
-                1,
-                &[ElementKind::F32],
-                input(0).unary(*uop),
-            );
+/// What an elementwise corpus shares: its operand count and the alignment that picks the schedule.
+struct Shape {
+    category: OpCategory,
+    arity: usize,
+    /// 256 lets the emitters pick a vectorized schedule; 4 defeats it (the scalar schedule the
+    /// binary and ternary comparison harnesses use).
+    align: u32,
+}
+
+fn profile_corpus(corpus: Vec<(String, OpDef)>, shape: &Shape, reps: u32) -> Vec<OpProfile> {
+    let d = OperandDesc::new(1, &[CHUNK as i64 - 1], &[1], ElementKind::F32, shape.align);
+    let key = structure_key(shape.category, &vec![d; shape.arity + 1], ArchSku::Sm89);
+    corpus
+        .into_iter()
+        .map(|(name, def)| {
             let text = op_to_text(&def);
             let round = min_ns(reps, || {
                 let back = op_from_text(&op_to_text(&def)).expect("own text parses");
@@ -109,7 +111,7 @@ pub fn profile_unary(reps: u32) -> Vec<OpProfile> {
                 })
                 .collect();
             OpProfile {
-                op: (*name).to_string(),
+                op: name,
                 ir_hash: kernel_hash(text.as_bytes()),
                 ir_bytes: text.len(),
                 text_roundtrip_ns: round,
@@ -117,6 +119,79 @@ pub fn profile_unary(reps: u32) -> Vec<OpProfile> {
             }
         })
         .collect()
+}
+
+fn elementwise(name: &str, arity: usize, e: Expr) -> (String, OpDef) {
+    (
+        name.to_string(),
+        OpDef::elementwise(&format!("def_{name}"), arity as u8, &[ElementKind::F32], e),
+    )
+}
+
+/// The binary corpus: the four arithmetic operators and the named `BinaryOp`s that are float
+/// elementwise (comparisons produce masks and are left to a mask-aware corpus).
+pub const BINARY_OPS: &[(&str, BinaryOp)] = &[
+    ("max", BinaryOp::Max),
+    ("min", BinaryOp::Min),
+    ("pow", BinaryOp::Pow),
+    ("rem", BinaryOp::Rem),
+    ("atan2", BinaryOp::Atan2),
+    ("copysign", BinaryOp::Copysign),
+    ("nextafter", BinaryOp::Nextafter),
+    ("fmax_ieee", BinaryOp::FmaxIeee),
+    ("fmin_ieee", BinaryOp::FminIeee),
+    ("rem_trunc", BinaryOp::RemTrunc),
+];
+
+/// Profile every unary op in [`UNARY_OPS`] on every emitter in [`EMITTERS`].
+pub fn profile_unary(reps: u32) -> Vec<OpProfile> {
+    let corpus = UNARY_OPS
+        .iter()
+        .map(|(name, uop)| elementwise(name, 1, input(0).unary(*uop)))
+        .collect();
+    let shape = Shape {
+        category: OpCategory::UnaryElementwise,
+        arity: 1,
+        align: 256,
+    };
+    profile_corpus(corpus, &shape, reps)
+}
+
+/// Profile the binary corpus: `+ - * /` and [`BINARY_OPS`].
+pub fn profile_binary(reps: u32) -> Vec<OpProfile> {
+    let mut corpus = vec![
+        elementwise("add", 2, input(0) + input(1)),
+        elementwise("sub", 2, input(0) - input(1)),
+        elementwise("mul", 2, input(0) * input(1)),
+        elementwise("div", 2, input(0) / input(1)),
+        elementwise("mul_add", 2, input(0) * input(1) + input(0)),
+    ];
+    corpus.extend(
+        BINARY_OPS
+            .iter()
+            .map(|(name, op)| elementwise(name, 2, input(0).binary(*op, input(1)))),
+    );
+    let shape = Shape {
+        category: OpCategory::BinaryElementwise,
+        arity: 2,
+        align: 4,
+    };
+    profile_corpus(corpus, &shape, reps)
+}
+
+/// Profile the ternary corpus: `select` and two three-operand arithmetic bodies.
+pub fn profile_ternary(reps: u32) -> Vec<OpProfile> {
+    let corpus = vec![
+        elementwise("select", 3, input(0).select(input(1), input(2))),
+        elementwise("mul_add3", 3, input(0) * input(1) + input(2)),
+        elementwise("sum3", 3, input(0) + input(1) + input(2)),
+    ];
+    let shape = Shape {
+        category: OpCategory::TernaryElementwise,
+        arity: 3,
+        align: 4,
+    };
+    profile_corpus(corpus, &shape, reps)
 }
 
 #[derive(Clone, Debug, PartialEq)]

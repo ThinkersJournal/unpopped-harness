@@ -1,5 +1,11 @@
 # Changelog
 
+## `0.0.15` — Harness B and C over binary and ternary corpora
+
+`profile::profile_binary` (add, sub, mul, div, mul_add and the ten float `BinaryOp`s in `BINARY_OPS`: 15 ops) and `profile::profile_ternary` (select, mul_add3, sum3), through the same fingerprint, round-trip and per-emitter emit timing as `profile_unary`; the example prints all three. Binary and ternary use alignment 4 (the scalar schedule the comparison harnesses use), unary keeps 256.
+Measured 2026-10-24 (200 reps, release): no op reaches 3x its emitter's median in either corpus (emit is 8-14 us everywhere). Slang declines `copysign` and `nextafter`; cpu-c and cuda emit all 15 binary and all 3 ternary ops. Comparison predicates (mask outputs) are not in the corpus.
+Tests: `tests/profile.rs` gains per-corpus row/fingerprint checks (distinct IR hashes, declines consistent, determinism, and a control that something emitted).
+
 ## `0.0.14` — Harness B and C: stage profile and emitter hotspot map
 
 `profile` (`profile_unary`, `hotspots`; `cargo run --release --example profile`): for every unary op, SHA-256 fingerprints of the IR text and of each emitter's source (cpu-c, cuda, slang), the IR text round trip and `try_generate` timed (minimum of N), and a hotspot map that divides each emit time by that emitter's own median. A decline is recorded as data (`EmitterRow::declined`) and excluded from the median. No device needed. CI: the CodeRipper portfolio pin moves to `ee9c3950` (0.9.24).
