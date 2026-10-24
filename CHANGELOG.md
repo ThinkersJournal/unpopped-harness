@@ -1,5 +1,9 @@
 # Changelog
 
+## `0.0.13` — CI only: repin the CodeRipper portfolio workflow
+
+The `portfolio` job moves from coderipper `c665210a` to `d14a22b6` (installs 0.9.14, the old SHA installed 0.9.6). No code change.
+
 ## `0.0.12` — CI only: advisory CodeRipper portfolio check
 
 Adds a non-blocking `portfolio` job (reusable workflow `ciresnave/coderipper`, pinned by SHA). No code change.
