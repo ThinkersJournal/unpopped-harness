@@ -2,7 +2,9 @@
 //! Harness B and C: device-free, so they run on any runner.
 
 use unpopped_harness::bench::UNARY_OPS;
-use unpopped_harness::profile::{hotspots, profile_unary, EmitterRow, OpProfile, EMITTERS};
+use unpopped_harness::profile::{
+    hotspots, profile_binary, profile_ternary, profile_unary, EmitterRow, OpProfile, EMITTERS,
+};
 
 #[test]
 fn every_op_has_a_row_per_emitter_with_distinct_fingerprints() {
@@ -114,4 +116,54 @@ fn declines_are_recorded_and_excluded_from_hotspots() {
     assert!(hotspots(&p, 3.0)
         .iter()
         .all(|h| !(h.op == "erf" && h.emitter == "slang")));
+}
+
+fn corpora() -> [(&'static str, Vec<OpProfile>); 2] {
+    [
+        ("binary", profile_binary(1)),
+        ("ternary", profile_ternary(1)),
+    ]
+}
+
+#[test]
+fn binary_and_ternary_corpora_profile_every_op_on_every_emitter() {
+    for (kind, p) in corpora() {
+        assert!(p.len() >= 3, "{kind}: corpus too small to mean anything");
+        for row in &p {
+            assert_eq!(row.emitters.len(), EMITTERS.len(), "{kind} {}", row.op);
+            assert!(row.ir_hash.starts_with("sha256:") && row.text_roundtrip_ns > 0);
+            for e in &row.emitters {
+                assert_eq!(e.source_hash.is_some(), e.declined.is_none());
+                assert_eq!(e.source_bytes > 0, e.declined.is_none());
+            }
+        }
+        let mut ir: Vec<_> = p.iter().map(|r| &r.ir_hash).collect();
+        ir.sort();
+        ir.dedup();
+        assert_eq!(ir.len(), p.len(), "{kind}: two ops share an IR fingerprint");
+        // Control: cpu-c emits the arithmetic bodies, so a corpus where every cell declined would be
+        // a wiring bug, not a finding.
+        assert!(
+            p.iter()
+                .any(|r| r.emitters.iter().any(|e| e.declined.is_none())),
+            "{kind}: nothing emitted anywhere"
+        );
+    }
+}
+
+#[test]
+fn binary_and_ternary_fingerprints_are_deterministic() {
+    for ((kind, a), (_, b)) in corpora().into_iter().zip(corpora()) {
+        for (x, y) in a.iter().zip(&b) {
+            assert_eq!(x.ir_hash, y.ir_hash, "{kind} {}", x.op);
+            for (ex, ey) in x.emitters.iter().zip(&y.emitters) {
+                assert_eq!(
+                    ex.source_hash, ey.source_hash,
+                    "{kind} {} {}",
+                    x.op, ex.emitter
+                );
+                assert_eq!(ex.declined, ey.declined, "{kind} {} {}", x.op, ex.emitter);
+            }
+        }
+    }
 }
