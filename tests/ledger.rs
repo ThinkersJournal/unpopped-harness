@@ -40,7 +40,7 @@ fn record(compiler_version: &str, hash: &str) -> ExactnessRecord {
         ElementKind::F32,
         ExactnessVerdict::Exact,
         hash,
-        emitter_version("unpopped-slang"),
+        emitter_version("fishstringer-slang-emit"),
         Coverage::exhaustive(1 << 32),
     )
 }

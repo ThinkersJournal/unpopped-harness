@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Third target: a Slang candidate (`unpopped-slang`), compiled to SPIR-V by `slangc` and run
+//! Third target: a Slang candidate (`fishstringer-slang-emit`), compiled to SPIR-V by `slangc` and run
 //! through `vulkane`, checked against the cpu-c reference over every f32.
 //!
 //! Same contract, [`Report`] and two-sentinel never-wrote test as the other targets: the loop is

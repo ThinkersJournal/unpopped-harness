@@ -3,7 +3,7 @@
 //! through a Slang kernel? The N2 ruling waits on this: KISS recommends gate-decline later, with no
 //! spec text until some device is measured not preserving NaN.
 //!
-//! This is the behavioural measurement. `vulkane` 0.16 does not expose
+//! This is the behavioural measurement. `vulkane` 0.16 did not expose
 //! `shaderSignedZeroInfNanPreserveFloat32`, so the device's *claim* is not read here; what a kernel
 //! does is. Each probe is run exhaustively over all 2^32 f32 inputs against cpu-c and printed per
 //! device. A device that fails a probe is the evidence the ruling needs; the asserts here only keep
@@ -48,7 +48,7 @@ fn probes() -> Vec<Probe> {
         Probe {
             name: "isinf",
             // `|x| > f32::MAX` is true only for an infinity. An infinity literal would be simpler but
-            // the published `unpopped-slang` 0.22.0 spells it as a C macro `slangc` rejects (fixed in
+            // the published `unpopped-slang` 0.22.0 (now `fishstringer-slang-emit`) spelled it as a C macro `slangc` rejects (fixed in
             // Unpopped 0.22.14), so the probe avoids the literal.
             what: "|x| > f32::MAX: are infinities kept",
             body: || {

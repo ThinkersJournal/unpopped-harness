@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! The Slang emitter through the same contract: exhaustive f32 compare on every Vulkan device,
-//! candidate (`unpopped-slang` -> `slangc` -> SPIR-V -> `vulkane`) against the cpu-c reference,
+//! candidate (`fishstringer-slang-emit` -> `slangc` -> SPIR-V -> `vulkane`) against the cpu-c reference,
 //! plus planted bugs the Vulkan path must reject. Needs `slangc` and a Vulkan driver.
 
 use std::path::PathBuf;
@@ -231,9 +231,14 @@ fn the_declared_precision_follows_the_measurement_on_every_device() {
             let spirv =
                 slang_to_spirv(&work(), &tag, &c.source, &c.name, opts.slangc_args).unwrap();
             let hash = kernel_hash(&spirv);
-            let record =
-                unary_f32_record(&stamp, &op, &rep, &hash, &emitter_version("unpopped-slang"))
-                    .expect("an exhaustive run always concludes");
+            let record = unary_f32_record(
+                &stamp,
+                &op,
+                &rep,
+                &hash,
+                &emitter_version("fishstringer-slang-emit"),
+            )
+            .expect("an exhaustive run always concludes");
             ledger.push(record);
             expected.push((label, stamp, exact, hash));
         }
