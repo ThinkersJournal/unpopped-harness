@@ -1,5 +1,10 @@
 # Changelog
 
+## `0.0.17` — first publishable release: every dependency repinned to the newest crates.io versions
+
+Repinned: `unpopped`, `unpopped-cpu-c`, `unpopped-vocab` 0.45.12; `baracuda-cuda-emit` 0.45.0 (`nvrtc`), `baracuda-driver` and `baracuda-nvrtc` 0.1.0-alpha.139; `vulkane` 0.21.1; `unpopped-slang` 0.22.0 is replaced by `fishstringer-slang-emit` 0.1.0 (`unpopped-slang` is deprecated and ends at 0.35.4; the `Slang` backend type moved with it). `publish = false` is removed. One copy of `unpopped` is in the graph (`baracuda-cuda-emit` 0.45.0 and `fishstringer-slang-emit` 0.1.0 both require `unpopped` ^0.45.12). `EMITTER_VERSIONS` and the lockfile test follow the new pins. README gains a patent note (what the harness does, no claim reading done, board 431 and board 434 C of 2026-11-13 quoted, with the reading that the harness compares outputs and does not itself lower or perform the operations).
+Not re-measured: the GPU and Vulkan tests need a self-hosted runner, so no device result is claimed for the new pins; the 0.0.16 measurements were taken on the old ones.
+
 ## `0.0.16` — C14: do Vulkan devices preserve NaN, infinity and the sign of zero?
 
 `tests/vulkan_nan.rs` (needs `slangc` and a Vulkan driver; `UNPOPPED_PROBE=<name>` runs one probe): three Slang probes compared Exact against cpu-c over all 2^32 f32 inputs on every Vulkan device, plus a control (a NaN-blind candidate must be rejected; it is). Probes: `isnan` (`x != x`), `isinf` (`|x| > f32::MAX`), `zero_sign` (class of `1/x`: +inf, -inf or finite). Denormal inputs are waived and counted, because every device tried flushes them (a separate, recorded property).

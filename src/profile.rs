@@ -53,7 +53,7 @@ fn backend(name: &str) -> Box<dyn Backend> {
     match name {
         "cpu-c" => Box::new(unpopped_cpu_c::CpuC),
         "cuda" => Box::new(baracuda_cuda_emit::Cuda),
-        "slang" => Box::new(unpopped_slang::Slang),
+        "slang" => Box::new(fishstringer_slang_emit::Slang),
         other => panic!("unknown emitter {other}"),
     }
 }

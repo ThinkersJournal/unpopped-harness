@@ -78,7 +78,7 @@ impl Kernel {
     pub fn from_unary_f32_slang(op: &OpDef) -> Kernel {
         let d = OperandDesc::new(1, &[CHUNK as i64 - 1], &[1], ElementKind::F32, 256);
         let key = structure_key(OpCategory::UnaryElementwise, &[d, d], ArchSku::Sm89);
-        let k: GeneratedKernel = generate(op, &key, &unpopped_slang::Slang);
+        let k: GeneratedKernel = generate(op, &key, &fishstringer_slang_emit::Slang);
         Kernel {
             name: k.name,
             source: k.source,

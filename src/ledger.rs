@@ -19,9 +19,9 @@ use crate::Report;
 /// lockfile and fails if one of these drifts, so the string cannot go stale unnoticed.
 /// (`emitter_version` stays a string the producer supplies: Unpopped cannot ask a `Backend`.)
 pub const EMITTER_VERSIONS: [(&str, &str); 3] = [
-    ("unpopped-cpu-c", "0.22.0"),
-    ("unpopped-slang", "0.22.0"),
-    ("baracuda-cuda-emit", "0.22.0"),
+    ("unpopped-cpu-c", "0.45.12"),
+    ("fishstringer-slang-emit", "0.1.0"),
+    ("baracuda-cuda-emit", "0.45.0"),
 ];
 
 /// `"{crate} {version}"` for one of [`EMITTER_VERSIONS`].

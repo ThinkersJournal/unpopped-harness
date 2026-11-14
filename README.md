@@ -8,7 +8,7 @@ tier (`Exact` or `Ulp(n)`) against the reference on **every** f32 input (2^32, e
 A never-wrote check (two different sentinels) catches kernels that write nothing.
 
 Targets today: cpu-c (reference, via MSVC `cl`), CUDA (via `baracuda-cuda-emit` + NVRTC) and
-Vulkan (`unpopped-slang` -> `slangc` -> SPIR-V -> `vulkane`).
+Vulkan (`fishstringer-slang-emit` -> `slangc` -> SPIR-V -> `vulkane`).
 Depends on published crates only (no path or git deps). Design: `docs/harness-family.md`;
 target survey: `docs/SURVEY.md`.
 
@@ -34,6 +34,21 @@ This harness only wraps other people's work, and says so:
 - [Unpopped](https://github.com/EvansLaboratories/Unpopped): `unpopped`, `unpopped-vocab` (IR,
   plan, structure keys) and `unpopped-cpu-c` (the portable-C99 reference emitter it compares against).
 - [Slang](https://github.com/shader-slang/slang): `slangc` compiles the emitted kernels to SPIR-V.
+- FishStringer: `fishstringer-slang-emit`, the Slang emitter (it replaces the deprecated `unpopped-slang`).
 - [Vulkane](https://github.com/ciresnave/vulkane): the safe Vulkan wrapper the Vulkan target runs on.
 - [Baracuda](https://github.com/ciresnave/baracuda): `baracuda-cuda-emit` (the CUDA
   emitter), `baracuda-nvrtc` and `baracuda-driver` (compile and launch).
+
+## Patent note
+
+This crate compares the outputs of kernel emitters (the portable-C reference against a Slang or CUDA candidate over every
+`f32` input, plus per-op timing). It reads a kernel's result; it implements no kernel-generation method of its own, and the
+emitters it drives are other crates with their own notes. No claim-by-claim reading of this crate has been done.
+
+Board 431 (CireSnave, 2026-11-13): the two NVIDIA patent hits on Unpopped's async-wait and collective statements were ruled
+publish-with-a-risk-note. Board 434 C (CireSnave, 2026-11-13): an emitter may lower AsyncWait, CopyAsync, AsyncCommit and
+Collective for NVIDIA devices with a risk note, and declines them by name for non-NVIDIA devices. This harness compares the
+outputs of emitters and does not itself lower or perform these operations; that is a reading, not a clearance.
+
+The Unpopped patent sweep (`docs/PATENT-SWEEP.md` in `EvansLaboratories/Unpopped`) records the families read for the code
+this harness exercises; its verdicts are "outside as read", never "clear".
